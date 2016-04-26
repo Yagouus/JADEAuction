@@ -36,13 +36,13 @@ public class Comprador extends jade.core.Agent {
         //GUI
         interfaz = new CompradorVentana(this);
         interfaz.setVisible(true);
-        
+
         //Creamos los servicios
         servicios = new ArrayList();
 
         //Registramos al agente
         dfd = new DFAgentDescription();
-        dfd.setName(this.getAID());      
+        dfd.setName(this.getAID());
 
         try {
             DFService.register(this, dfd);
@@ -74,7 +74,6 @@ public class Comprador extends jade.core.Agent {
         removeBehaviour(aceptar);
         removeBehaviour(resultado);
         removeBehaviour(actualizar);
-        
 
         //Eliminamos los servicios
         for (ServiceDescription servicio : servicios) {
@@ -176,23 +175,31 @@ public class Comprador extends jade.core.Agent {
                 tituloLibro = tokens[0];
                 precioLibro = Double.parseDouble(tokens[1]);
 
-                //System.out.println(myAgent.getName() + ", se ha ido incrementando el precio. El libro: " + tituloLibro + " pasa a: " + precioLibro);
-                
                 ACLMessage reply = respuesta.createReply();
 
                 //Buscamos el libro
-                for (int i = 0; i < listaLibros.size(); i++) {
-                    if (listaLibros.get(i).getTitulo().equals(tituloLibro)) {
-                        listaLibros.get(i).setPrecio(precioLibro);
-
-                    }//Si el precio es menor a nuestro tope respondemos a la oferta
-                    if (listaLibros.get(i).getPuja() >= precioLibro) {
+                for (LibroComprador libro : listaLibros) {
+                    if (libro.getTitulo().equals(tituloLibro) && libro.getPuja() >= precioLibro) {
                         System.out.println("El agente: " + myAgent.getName() + " puja");
                         reply.setContent(tituloLibro);
                         reply.setPerformative(ACLMessage.PROPOSE);
                         myAgent.send(reply);
                     }
                 }
+                
+//                for (int i = 0; i < listaLibros.size(); i++) {
+//                    if (listaLibros.get(i).getTitulo().equals(tituloLibro)) {
+//                        listaLibros.get(i).setPrecio(precioLibro);
+//
+//                    }//Si el precio es menor a nuestro tope respondemos a la oferta
+//                    if (listaLibros.get(i).getPuja() >= precioLibro) {
+//                        System.out.println("El agente: " + myAgent.getName() + " puja");
+//                        reply.setContent(tituloLibro);
+//                        reply.setPerformative(ACLMessage.PROPOSE);
+//                        myAgent.send(reply);
+//                    }
+//                }
+            
             } else {
                 block();
             }
