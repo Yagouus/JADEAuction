@@ -13,6 +13,7 @@ import jade.lang.acl.MessageTemplate;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
 
 public class Comprador extends jade.core.Agent {
 
@@ -94,8 +95,7 @@ public class Comprador extends jade.core.Agent {
             public void action() {
 
                 //Creamos el libro
-                LibroComprador libro = new LibroComprador(titulo, precio);
-                listaLibros.add(libro);
+                listaLibros.add(new LibroComprador(titulo, precio));
 
                 //Creamos el servicio y lo añadimos
                 ServiceDescription sd = new ServiceDescription();
@@ -120,31 +120,33 @@ public class Comprador extends jade.core.Agent {
             @Override
             public void action() {
 
-                //Buscamos el servicio
-                for (int j = 0; j < servicios.size(); j++) {
-                    if (servicios.get(j).getName().equals(titulo)) {
-
-                        //Eliminamos el servicio
-                        dfd.removeServices(servicios.get(j));
-                        servicios.remove(servicios.get(j));
-
-                        //Eliminamos el libro de la lista
-                        for (int i = 0; i < listaLibros.size(); i++) {
-                            if (listaLibros.get(i).getTitulo().equals(titulo)) {
-                                listaLibros.remove(listaLibros.get(i));
-                            }
-                        }
-                    }
-
-                    //Actualizamos el agente
-                    try {
-                        DFService.modify(myAgent, dfd);
-                    } catch (FIPAException ex) {
-                        Logger.getLogger(Vendedor.class.getName()).log(Level.SEVERE, null, ex);
+                //Eliminamos el servicio
+                for (ServiceDescription servicio : servicios) {
+                    if (servicio.getName().equals(titulo)) {
+                        servicios.remove(servicio);
+                        dfd.removeServices(servicio);
+                        break;
                     }
                 }
+
+                //Eliminamos libro de la lista
+                for (LibroComprador libro : listaLibros) {
+                    if (libro.getTitulo().equals(titulo)) {
+                        listaLibros.remove(libro);
+                        break;
+                    }
+                }
+
+                //Actualizamos el agente
+                try {
+                    DFService.modify(myAgent, dfd);
+                } catch (FIPAException ex) {
+                    System.out.println("Excepcion eliminar libro: " + ex);
+                }
             }
-        });
+
+        }
+        );
     }
 
     //Actualiza el estado de los libros en la interfaz
@@ -157,7 +159,7 @@ public class Comprador extends jade.core.Agent {
         }
     }
 
-    //Espera a recibir puja aceptada
+//Espera a recibir puja aceptada
     private class aceptarPuja extends CyclicBehaviour {
 
         @Override
@@ -169,37 +171,37 @@ public class Comprador extends jade.core.Agent {
 
             //Esperamos a recibir un mensaje
             if (respuesta != null) {
-                double precioLibro;
-                String tituloLibro;
                 String[] tokens = respuesta.getContent().split(", ");
-                tituloLibro = tokens[0];
-                precioLibro = Double.parseDouble(tokens[1]);
+                String tituloLibro = tokens[0];
+                double precioLibro = Double.parseDouble(tokens[1]);
+                int estadoLibro = Integer.parseInt(tokens[2]);
 
                 ACLMessage reply = respuesta.createReply();
 
                 //Buscamos el libro
                 for (LibroComprador libro : listaLibros) {
-                    if (libro.getTitulo().equals(tituloLibro) && libro.getPuja() >= precioLibro) {
-                        System.out.println("El agente: " + myAgent.getName() + " puja");
-                        reply.setContent(tituloLibro);
-                        reply.setPerformative(ACLMessage.PROPOSE);
-                        myAgent.send(reply);
+                    if (libro.getTitulo().equals(tituloLibro)) {
+
+                        //Actualizamos la información del libro
+                        libro.setPrecio(precioLibro);
+                        libro.setEstado(estadoLibro);
+                        interfaz.actualizarEstado(listaLibros);
+
+                        //Pujamos?
+                        if (libro.getPuja() >= precioLibro) {
+
+                            //Notificamos puja
+                            System.out.println("El agente: " + myAgent.getName() + " puja");
+
+                            //Mandamos propuesta
+                            reply.setContent(tituloLibro);
+                            reply.setPerformative(ACLMessage.PROPOSE);
+                            myAgent.send(reply);
+                        }
+
                     }
                 }
-                
-//                for (int i = 0; i < listaLibros.size(); i++) {
-//                    if (listaLibros.get(i).getTitulo().equals(tituloLibro)) {
-//                        listaLibros.get(i).setPrecio(precioLibro);
-//
-//                    }//Si el precio es menor a nuestro tope respondemos a la oferta
-//                    if (listaLibros.get(i).getPuja() >= precioLibro) {
-//                        System.out.println("El agente: " + myAgent.getName() + " puja");
-//                        reply.setContent(tituloLibro);
-//                        reply.setPerformative(ACLMessage.PROPOSE);
-//                        myAgent.send(reply);
-//                    }
-//                }
-            
+
             } else {
                 block();
             }
@@ -207,55 +209,53 @@ public class Comprador extends jade.core.Agent {
 
     }
 
-    //Muestra el resultado de una subasta
+//Muestra el resultado de una subasta
     private class resultadoSubasta extends CyclicBehaviour {
 
         @Override
         public void action() {
 
-            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
             ACLMessage respuesta = myAgent.receive(mt);
+
+            MessageTemplate rechazo = MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL);
+            ACLMessage respuestaRechazo = myAgent.receive(rechazo);
 
             //Esperamos a recibir mensaje
             if (respuesta != null) {
 
-                //Dividimos el mensaje
-                String tituloLibro;
-                int estadoLibro;
-                double precioLibro;
                 String[] tokens = respuesta.getContent().split(", ");
-                tituloLibro = tokens[0];
-                precioLibro = Double.parseDouble(tokens[1]);
-                estadoLibro = Integer.parseInt(tokens[2]);
+                String tituloLibro = tokens[0];
+                String precioLibro = tokens[1];
 
-                //Actualizamos el libro
-                for (int i = 0; i < listaLibros.size(); i++) {
-                    if (listaLibros.get(i).getTitulo().equals(tituloLibro)) {
-                        listaLibros.get(i).setEstado(estadoLibro);
-                        listaLibros.get(i).setPrecio(precioLibro);
+                //Notificamos
+                System.out.println("El agente: " + myAgent.getName() + " ha ganado la subasta de -> " + tituloLibro + " por el precio de: " + precioLibro);
+                JOptionPane.showMessageDialog(null, "Has ganado la subasta de -> " + tituloLibro + " por el precio de: " + precioLibro);
 
-//                        //Si el libro ya se ha vendido lo eliminamos
-//                        if (listaLibros.get(i).getEstado() > 1) {
-//                            for (int j = 0; j < servicios.size(); j++) {
-//                                if (servicios.get(j).getName().equals(listaLibros.get(i).getTitulo())) {
-//                                    dfd.removeServices(servicios.get(j));
-//                                    servicios.remove(servicios.get(j));
-//                                }
-//                            }
-//                            
-//                            try {
-//                                DFService.modify(myAgent, dfd);
-//                            } catch (FIPAException ex) {
-//                                Logger.getLogger(Vendedor.class.getName()).log(Level.SEVERE, null, ex);
-//                            }
-//                        }
+                //Eliminamos el servicio y borramos el libro de la lista
+                eliminarLibro(tituloLibro);
+
+            } else if (respuestaRechazo != null) {
+                String[] tokens = respuesta.getContent().split(", ");
+                String tituloLibro = tokens[0];
+                String precioLibro = tokens[1];
+                String estadoLibro = tokens[2];
+
+                for (LibroComprador libro : listaLibros) {
+                    if (libro.getTitulo().equals(tituloLibro)) {
+
                     }
+                    //Actualizamos la información del libro
+                    libro.setPrecio(Double.parseDouble(precioLibro));
+                    libro.setEstado(Integer.parseInt(estadoLibro));
+                    interfaz.actualizarEstado(listaLibros);
                 }
-                System.out.println("Agente: " + getAID().getName() + " actualiza info libro -> " + tituloLibro + "Estado: " + estadoLibro);
+
             } else {
                 block();
             }
 
         }
     }
+
 }

@@ -174,6 +174,7 @@ public class Vendedor extends jade.core.Agent {
             DFAgentDescription[] result;
 
             ArrayList<AID> pujadores = new ArrayList<>();
+            ArrayList<AID> nuevosPujadores = new ArrayList<>();
 
             //Notificar nuevos pujadores y eliminar retirados
             try {
@@ -197,14 +198,20 @@ public class Vendedor extends jade.core.Agent {
 
                         //Enviamos mensaje con puja actual
                         ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-                        msg.setContent(libro.getTitulo() + ", " + libro.getPrecioSalida() + ", " + libro.getEstado());
+                        msg.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
                         msg.addReceiver(pujador.getName());
                         myAgent.send(msg);
-                        
+
+                        //Lo guardamos en una lista de nuevos pujadores
+                        nuevosPujadores.add(pujador.getName());
+
                         //Limpiamos los recibidores
                         msg.clearAllReceiver();
                     }
                 }
+
+                //Compradores retirados
+                ArrayList<AID> retirados = new ArrayList<>();
 
                 //Comprobamos pujadores retirados
                 for (AID pujador : libro.getPujadores()) {
@@ -212,37 +219,22 @@ public class Vendedor extends jade.core.Agent {
                     //Si el interesado no ha pujado le notificamos la puja actual
                     if (!pujadores.contains(pujador)) {
 
-                        //Mostramos mensaje
-                        System.out.println("El pujador: " + pujador + "se ha retirado");
-
-                        //Eliminamos al pujador de la lista
-                        libro.getPujadores().remove(pujador);
-
+                        //Añadimos a la lista de eliminar
+                        retirados.add(pujador);
                     }
                 }
 
-//                for (int i = 0; i < result.length; i++) {
-//                    pujadores.add(result[i].getName());
-//
-//                    //Notificamos nuevos pujadores
-//                    if (!libro.getPujadores().contains(pujadores.get(i))) {
-//                        System.out.println("Nuevo posible comprador: " + result[i].getName().getName());
-//
-//                        //Enviamos mensaje con puja actual
-//                        ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-//                        msg.setContent(libro.getTitulo() + ", " + libro.getPrecioSalida() + ", " + libro.getEstado());
-//                        msg.addReceiver(pujadores.get(i));
-//                        myAgent.send(msg);
-//
-//                        //Comprobamos si algun pujador se ha retirado
-//                        for (int j = 0; j < libro.getPujadores().size(); j++) {
-//                            if (!pujadores.contains(libro.getPujadores().get(j))) {
-//                                System.out.println("El pujador: " + libro.getPujadores().get(j) + "se ha retirado");
-//                                libro.getPujadores().remove(libro.getPujadores().get(j));
-//                            }
-//                        }
-//                    }
-//                }
+                //Eliminamos los retirados
+                for (AID retirado : retirados) {
+                    for (AID pujador : libro.getPujadores()) {
+                        if (retirado.equals(pujador)) {
+                            //Mostramos mensaje
+                            System.out.println("El pujador: " + pujador.getName() + "se ha retirado");
+                            libro.getPujadores().remove(pujador);
+                            break;
+                        }
+                    }
+                }
 
             } catch (FIPAException ex) {
                 System.out.println("Excepcion en Subasta: " + ex);
@@ -260,13 +252,18 @@ public class Vendedor extends jade.core.Agent {
                 //Aumentamos el precio del libro
                 libro.incrementarPrecio();
 
+                //Eliminamos a los pujadores del libro
+                libro.getPujadores().clear();
+
                 //Notificamos a los pujadores el aumento de precio
                 for (AID pujador : pujadores) {
-                    //Enviamos mensaje con puja actual
-                    ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-                    msg.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
-                    msg.addReceiver(pujador);
-                    myAgent.send(msg);
+                    if (!nuevosPujadores.contains(pujador)) {
+                        //Enviamos mensaje con puja actual
+                        ACLMessage msg = new ACLMessage(ACLMessage.CFP);
+                        msg.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
+                        msg.addReceiver(pujador);
+                        myAgent.send(msg);
+                    }
                 }
 
             } //Si no hay pujas vendemos al mejor de la ronda previa
@@ -277,16 +274,17 @@ public class Vendedor extends jade.core.Agent {
 
                 //Enviamos ACCEPT_PROPOSAL al mejor pujador
                 ACLMessage aceptar = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                aceptar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta());
                 aceptar.addReceiver(libro.getMejorPujador());
                 myAgent.send(aceptar);
 
                 //Enviamos REJECT_PROPOSAL a los demas
                 ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                for (int i = 0; i < libro.getPujadores().size(); i++) {
-                    if (!libro.getPujadores().get(i).equals(libro.getMejorPujador())) {
-                        rechazar.addReceiver(libro.getPujadores().get(i));
+                for (AID pujador : libro.getPujadores()) {
+                    if (!pujador.equals(libro.getMejorPujador())) {
+                        rechazar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
+                        rechazar.addReceiver(pujador);
                     }
-
                 }
                 myAgent.send(rechazar);
 
@@ -301,16 +299,16 @@ public class Vendedor extends jade.core.Agent {
 
                 //Enviamos ACCEPT_PROPOSAL al mejor pujador
                 ACLMessage aceptar = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                aceptar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta());
                 aceptar.addReceiver(libro.getMejorPujador());
                 myAgent.send(aceptar);
 
                 //Enviamos REJECT_PROPOSAL a los demas
                 ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                for (int i = 0; i < libro.getPujadores().size(); i++) {
-                    if (!libro.getPujadores().get(i).equals(libro.getMejorPujador())) {
-                        rechazar.addReceiver(libro.getPujadores().get(i));
+                for (AID pujador : libro.getPujadores()) {
+                    if (!pujador.equals(libro.getMejorPujador())) {
+                        rechazar.addReceiver(pujador);
                     }
-
                 }
                 myAgent.send(rechazar);
 
@@ -329,7 +327,7 @@ public class Vendedor extends jade.core.Agent {
 
         @Override
         public int onEnd() {
-            System.out.println("La subasta se termina...");
+            System.out.println("Subasta de " + libro + " terminada! ");
             return 0;
         }
 
