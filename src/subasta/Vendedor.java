@@ -254,6 +254,16 @@ public class Vendedor extends jade.core.Agent {
 
                 //Eliminamos a los pujadores del libro
                 libro.getPujadores().clear();
+                
+                //                //Enviamos REJECT_PROPOSAL a los demas
+//                ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+//                for (AID pujador : libro.getPujadores()) {
+//                    if (!pujador.equals(libro.getMejorPujador())) {
+//                        rechazar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
+//                        rechazar.addReceiver(pujador);
+//                    }
+//                }
+//                myAgent.send(rechazar);
 
                 //Notificamos a los pujadores el aumento de precio
                 for (AID pujador : pujadores) {
@@ -272,24 +282,24 @@ public class Vendedor extends jade.core.Agent {
                 //Reducimos el precio a la ronda anterior
                 libro.decrementarPrecio();
 
+                //Cambiamos el estado a vendido
+                libro.setEstado(2);
+
                 //Enviamos ACCEPT_PROPOSAL al mejor pujador
                 ACLMessage aceptar = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
                 aceptar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta());
                 aceptar.addReceiver(libro.getMejorPujador());
                 myAgent.send(aceptar);
 
-                //Enviamos REJECT_PROPOSAL a los demas
-                ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                for (AID pujador : libro.getPujadores()) {
-                    if (!pujador.equals(libro.getMejorPujador())) {
-                        rechazar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
-                        rechazar.addReceiver(pujador);
-                    }
-                }
-                myAgent.send(rechazar);
-
-                //Cambiamos el estado a vendido
-                libro.setEstado(2);
+//                //Enviamos REJECT_PROPOSAL a los demas
+//                ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+//                for (AID pujador : libro.getPujadores()) {
+//                    if (!pujador.equals(libro.getMejorPujador())) {
+//                        rechazar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta() + ", " + libro.getEstado());
+//                        rechazar.addReceiver(pujador);
+//                    }
+//                }
+//                myAgent.send(rechazar);
 
                 //Acabamos la subasta
                 this.stop();
@@ -297,25 +307,16 @@ public class Vendedor extends jade.core.Agent {
                 //Si solo hay una puja se lo lleva ese pujador
             } else if (libro.getPujas() == 1) {
 
+                //Cambiamos el estado a vendido
+                libro.setEstado(2);
+
                 //Enviamos ACCEPT_PROPOSAL al mejor pujador
                 ACLMessage aceptar = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
                 aceptar.setContent(libro.getTitulo() + ", " + libro.getPrecioSubasta());
                 aceptar.addReceiver(libro.getMejorPujador());
                 myAgent.send(aceptar);
 
-                //Enviamos REJECT_PROPOSAL a los demas
-                ACLMessage rechazar = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                for (AID pujador : libro.getPujadores()) {
-                    if (!pujador.equals(libro.getMejorPujador())) {
-                        rechazar.addReceiver(pujador);
-                    }
-                }
-                myAgent.send(rechazar);
-
-                //Cambiamos el estado a vendido
-                libro.setEstado(2);
-
-                //Acabamos la subasta
+                    //Acabamos la subasta
                 this.stop();
 
             }
