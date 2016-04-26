@@ -244,7 +244,7 @@ public class Comprador extends jade.core.Agent {
 //                        }
                     }
                 }
-                System.out.println("Agente: " + getAID().getName() + " actualiza info libro -> " + tituloLibro);
+                System.out.println("Agente: " + getAID().getName() + " actualiza info libro -> " + tituloLibro + "Estado: " + estadoLibro);
             } else {
                 block();
             }

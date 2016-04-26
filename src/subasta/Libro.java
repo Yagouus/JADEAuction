@@ -113,4 +113,7 @@ public class Libro {
         precioSubasta += incrementoPrecio;
     }
 
+    public void decrementarPrecio(){
+        precioSubasta -= incrementoPrecio;
+    }
 }
